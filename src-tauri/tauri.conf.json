@@ -1,0 +1,29 @@
+{
+  "identifier" : "com.tangdou.flacplayer", 
+  "version": "0.0.1", 
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "plugins": {
+    "fs":  null,
+    "dialog": null
+  },
+  "app": {
+    "security": {
+      "csp": null,
+       "capabilities": ["default"]
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 600,
+        "resizable": true,
+        "title": "flac-player",
+        "width": 800
+      }
+    ]
+  }
+}

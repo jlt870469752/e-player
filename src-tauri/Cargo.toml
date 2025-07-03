@@ -1,0 +1,19 @@
+[package]
+name = "flac-player"
+version = "0.1.0"
+description = "A Tauri-based FLAC player"
+authors = ["You <you@example.com>"]
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.6.1", features = [] }  # 使用最新稳定版，替换 shell-open
+claxon = "0.4.3"
+rand = "0.8.5"
+tauri-plugin-dialog = "2.3.0"
+tauri-plugin-fs = "2.4.0"
+base64 = "0.21"
+
+[build-dependencies]
+tauri-build = { version = "2.3.0", features = [] }

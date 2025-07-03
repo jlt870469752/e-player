@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "dialog"
+description = "Allow native dialogs"
+commands.allow = [
+  "dialog.open",
+  "dialog.save",
+  "dialog.ask",
+  "dialog.message",
+  "dialog.confirm"
+]
