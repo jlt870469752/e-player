@@ -1,226 +1,175 @@
 <template>
   <div class="player-controls">
-    <button @click="openFileDialog" class="btn-open">打开FLAC文件</button>
-    
-    <div class="now-playing" v-if="currentTrack">
-      <img :src="currentTrack.cover || 'placeholder.jpg'" class="cover" alt="专辑封面">
+    <div class="current-track" v-if="player.currentTrack">
+      <img :src="player.currentTrack.cover || defaultCover" alt="Cover" class="cover" />
       <div class="track-info">
-        <h3>{{ currentTrack.title }}</h3>
-        <p>{{ currentTrack.artist }} - {{ currentTrack.album }}</p>
+        <div class="title">{{ player.currentTrack.title }}</div>
+        <div class="artist">{{ player.currentTrack.artist }}</div>
       </div>
     </div>
-    
+
     <div class="controls">
-      <button @click="prevTrack" class="btn-control">上一首</button>
-      <button @click="togglePlay" class="btn-play">
-        {{ isPlaying ? '暂停' : '播放' }}
+      <button @click="player.prevTrack" title="上一首" class="btn">
+        ◀️
       </button>
-      <button @click="nextTrack" class="btn-control">下一首</button>
+
+      <button @click="player.togglePlay" class="btn play-btn" :title="player.isPlaying ? '暂停' : '播放'">
+        {{ player.isPlaying ? '⏸' : '▶️' }}
+      </button>
+
+      <button @click="player.nextTrack" title="下一首" class="btn">
+        ▶️
+      </button>
     </div>
-    
-    <div class="progress" v-if="currentTrack">
-      <input type="range" min="0" max="100" v-model="progress" @change="seek" class="progress-bar">
-      <div class="time">
-        <span>{{ formatTime(currentTime) }}</span>
-        <span>{{ formatTime(duration) }}</span>
-      </div>
+
+    <div class="progress-bar" @click="seek($event)">
+      <div class="progress" :style="{ width: progressPercent + '%' }"></div>
     </div>
-    
-    <div class="volume">
-      <span>音量:</span>
-      <!-- <input type="range" min="0" max="100" v-model="volume" @change="setVolume(volume / 100)" class="volume-bar"> -->
-       <input type="range"
-       min="0"
-       max="1"
-       step="0.01"
-       v-model.number="volume"
-       @input="setVolume(volume)" />
+
+    <div class="time-info">
+      <span>{{ formatTime(player.currentTime) }}</span>
+      <span>{{ formatTime(player.duration) }}</span>
     </div>
-    
-    <div class="playlist" v-if="playlist.length > 0">
-      <h3>播放列表</h3>
-      <ul>
-        <li v-for="(track, index) in playlist" :key="track.id" 
-            @click="playTrack(track)"
-            :class="{ 'current': track.id === currentTrack?.id }">
-          {{ index + 1 }}. {{ track.title }} - {{ track.artist }}
-        </li>
-      </ul>
+
+    <div class="volume-control">
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        v-model.number="player.volume"
+        @input="player.setVolume(player.volume)"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { usePlayerStore } from '../stores/player'
-import { storeToRefs } from 'pinia'
+import { usePlayerStore } from '@/stores/player'
+import { computed } from 'vue'
 
-const playerStore = usePlayerStore()
-const {
-  currentTrack,
-  playlist,
-  isPlaying,
-  currentTime,
-  duration,
-  volume
-} = storeToRefs(playerStore)
+const player = usePlayerStore()
+const defaultCover = 'https://via.placeholder.com/80?text=No+Cover'
 
-const progress = ref(0)
-const volumeValue = ref(playerStore.volume * 100)
-
-// 监听当前时间变化更新进度条
-watch(currentTime, (newTime) => {
-  if (duration.value > 0) {
-    progress.value = (newTime / duration.value) * 100
-  }
+const progressPercent = computed(() => {
+  if (player.duration === 0) return 0
+  return (player.currentTime / player.duration) * 100
 })
 
-// 格式化时间 (秒 -> mm:ss)
-const formatTime = (seconds: number) => {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`
+function seek(event: MouseEvent) {
+  const bar = event.currentTarget as HTMLElement
+  const rect = bar.getBoundingClientRect()
+  const clickX = event.clientX - rect.left
+  const ratio = clickX / rect.width
+  player.seek(ratio * 100)
 }
 
-// 暴露播放器操作方法
-const openFileDialog = () => playerStore.openFileDialog()
-const playTrack = (track: any) => playerStore.playTrack(track)
-const togglePlay = () => playerStore.togglePlay()
-const prevTrack = () => playerStore.prevTrack()
-const nextTrack = () => playerStore.nextTrack()
-const seek = (event: Event) => {
-  const position = parseInt((event.target as HTMLInputElement).value)
-  playerStore.seek(position)
+function formatTime(seconds: number): string {
+  if (isNaN(seconds)) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
-const setVolume = (vol: number) => playerStore.setVolume(vol)
 </script>
 
 <style scoped>
 .player-controls {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  background: white;
+  border-radius: 8px;
+  padding: 15px 20px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.1);
+  user-select: none;
 }
 
-.btn-open {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  margin-bottom: 20px;
-}
-
-.now-playing {
+.current-track {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .cover {
   width: 80px;
   height: 80px;
-  border-radius: 5px;
-  margin-right: 15px;
   object-fit: cover;
+  border-radius: 8px;
+  margin-right: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
-.track-info h3 {
-  margin: 0;
-  font-size: 18px;
+.track-info {
+  flex-grow: 1;
+  overflow: hidden;
 }
 
-.track-info p {
-  margin: 5px 0 0;
+.title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artist {
   color: #666;
+  margin-top: 3px;
+  font-size: 0.9rem;
 }
 
 .controls {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  margin-bottom: 20px;
+  gap: 20px;
+  margin-bottom: 15px;
 }
 
-.btn-play {
-  background: #2ecc71;
-  color: white;
-  border: none;
-  width: 80px;
-  height: 40px;
-  border-radius: 5px;
-  font-size: 16px;
+.btn {
+  font-size: 1.5rem;
   cursor: pointer;
-}
-
-.btn-control {
-  background: #95a5a6;
-  color: white;
+  background: none;
   border: none;
-  width: 80px;
-  height: 40px;
-  border-radius: 5px;
-  cursor: pointer;
+  padding: 6px 10px;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
 }
 
-.progress {
-  margin-bottom: 20px;
+.btn:hover {
+  background-color: #eee;
+}
+
+.play-btn {
+  font-size: 2rem;
+  color: #2c3e50;
 }
 
 .progress-bar {
   width: 100%;
-  margin-bottom: 5px;
+  height: 8px;
+  background: #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 10px;
 }
 
-.time {
+.progress {
+  background: #2c3e50;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.time-info {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 0.85rem;
   color: #666;
+  margin-bottom: 15px;
 }
 
-.volume {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.volume-bar {
-  flex-grow: 1;
-}
-
-.playlist {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.playlist h3 {
-  margin-top: 0;
-}
-
-.playlist ul {
-  list-style: none;
-  padding: 0;
-}
-
-.playlist li {
-  padding: 8px 12px;
-  border-bottom: 1px solid #eee;
+.volume-control input[type='range'] {
+  width: 100%;
   cursor: pointer;
-}
-
-.playlist li:hover {
-  background: #e9f7fe;
-}
-
-.playlist li.current {
-  background: #d4edff;
-  font-weight: bold;
 }
 </style>

@@ -1,86 +1,101 @@
 <template>
   <div class="library-view">
-    <h2 class="title">曲库</h2>
-    <button @click="scan" :disabled="library.loading" class="scan-btn">
-      {{ library.loading ? '扫描中...' : '扫描目录' }}
-    </button>
+    <div class="header">
+      <h1>🎵 曲库</h1>
+      <button class="scan-button" @click="scan">📁 扫描目录</button>
+    </div>
 
-    <TrackList 
-      :tracks="library.tracks" 
-      :selectedTrackId="currentTrack?.id ?? null"
-      @select="onTrackSelect" 
-    />
+    <div v-if="library.loading" class="loading">正在扫描目录...</div>
 
-    <PlayerControls />
+    <div v-if="library.tracks.length === 0 && !library.loading" class="empty">
+      暂无音乐，请点击“扫描目录”
+    </div>
+
+    <ul class="track-list">
+      <li
+        v-for="track in library.tracks"
+        :key="track.id"
+        class="track-item"
+        @click="play(track)"
+      >
+        <div class="title">{{ track.title }}</div>
+        <div class="artist">{{ track.artist }} - {{ track.album }}</div>
+      </li>
+    </ul>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
-import type { AudioTrack } from '@/stores/library'
-import TrackList from '@/components/TrackList.vue'
-import PlayerControls from '@/components/PlayerControls.vue'
 
 const library = useLibraryStore()
 const player = usePlayerStore()
-const currentTrack = ref<AudioTrack | null>(null)
 
-async function scan() {
-  await library.scanMusicDirectory()
+const scan = () => {
+  library.scanMusicDirectory()
 }
 
-// 当选中曲目时，通知播放器播放
-function onTrackSelect(track: AudioTrack) {
-  currentTrack.value = track
+const play = (track: AudioTrack) => {
   player.playTrack(track)
 }
-
-watch(() => player.currentTrack, val => {
-  currentTrack.value = val
-})
 </script>
 
 <style scoped>
 .library-view {
-  max-width: 900px;
-  margin: 30px auto;
-  padding: 20px;
-  background: #fafafa;
-  border-radius: 8px;
-  box-shadow: 0 3px 12px rgb(0 0 0 / 0.05);
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
 }
 
-.title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 15px;
-  color: #34495e;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scan-button {
+  padding: 6px 16px;
+  background-color: #007bff;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+}
+
+.scan-button:hover {
+  background-color: #0056b3;
+}
+
+.loading,
+.empty {
+  margin-top: 20px;
+  color: #666;
   text-align: center;
 }
 
-.scan-btn {
-  background-color: #3498db;
-  color: white;
-  padding: 8px 18px;
-  border: none;
-  border-radius: 5px;
+.track-list {
+  margin-top: 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.track-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0e0e0;
   cursor: pointer;
-  font-weight: 600;
-  margin-bottom: 20px;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  transition: background-color 0.3s ease;
 }
 
-.scan-btn:disabled {
-  background-color: #a0c4db;
-  cursor: not-allowed;
+.track-item:hover {
+  background-color: #f5f5f5;
 }
 
-.scan-btn:not(:disabled):hover {
-  background-color: #2980b9;
+.title {
+  font-weight: bold;
+}
+
+.artist {
+  font-size: 0.9em;
+  color: #666;
 }
 </style>
