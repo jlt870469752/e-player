@@ -1,14 +1,11 @@
 <template>
   <div class="library-view">
-    <div class="header">
-      <h1>🎵 曲库</h1>
-      <button class="scan-button" @click="scan">📁 扫描目录</button>
-    </div>
+    <h1>🎵 曲库</h1>
 
     <div v-if="library.loading" class="loading">正在扫描目录...</div>
 
     <div v-if="library.tracks.length === 0 && !library.loading" class="empty">
-      暂无音乐，请点击“扫描目录”
+      暂无音乐，请点击“添加曲库”
     </div>
 
     <ul class="track-list">
@@ -32,10 +29,6 @@ import { usePlayerStore } from '@/stores/player'
 const library = useLibraryStore()
 const player = usePlayerStore()
 
-const scan = () => {
-  library.scanMusicDirectory()
-}
-
 const play = (track: AudioTrack) => {
   player.playTrack(track)
 }
@@ -46,25 +39,6 @@ const play = (track: AudioTrack) => {
   padding: 24px;
   flex: 1;
   overflow-y: auto;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.scan-button {
-  padding: 6px 16px;
-  background-color: #007bff;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-}
-
-.scan-button:hover {
-  background-color: #0056b3;
 }
 
 .loading,
