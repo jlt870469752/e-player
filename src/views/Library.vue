@@ -75,7 +75,6 @@ watch(() => player.currentTrack, val => {
   transition: background-color 0.3s ease;
 }
 
-
 .scan-btn:disabled {
   background-color: #a0c4db;
   cursor: not-allowed;
