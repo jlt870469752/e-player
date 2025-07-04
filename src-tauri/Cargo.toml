@@ -14,6 +14,8 @@ rand = "0.8.5"
 tauri-plugin-dialog = "2.3.0"
 tauri-plugin-fs = "2.4.0"
 base64 = "0.21"
+uuid = { version = "1", features = ["v4"] }
+dirs = "5"  # 或最新版本
 
 [build-dependencies]
 tauri-build = { version = "2.3.0", features = [] }
