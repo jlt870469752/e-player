@@ -129,6 +129,35 @@ async fn read_file_base64(path: String) -> Result<String, String> {
     Ok(encoded)
 }
 
+#[tauri::command]
+async fn create_directory(path: String) -> Result<(), String> {
+    fs::create_dir_all(&path)
+        .map_err(|e| format!("创建目录失败: {}", e))
+}
+
+#[tauri::command]
+async fn remove_file(path: String) -> Result<(), String> {
+    fs::remove_file(&path)
+        .map_err(|e| format!("删除文件失败: {}", e))
+}
+
+#[tauri::command]
+async fn file_exists(path: String) -> Result<bool, String> {
+    let exists = Path::new(&path).exists();
+    Ok(exists)
+}
+#[tauri::command]
+async fn get_file_metadata(path: String) -> Result<serde_json::Value, String> {
+    let metadata = fs::metadata(&path)
+        .map_err(|e| format!("获取文件元数据失败: {}", e))?;
+    
+    Ok(serde_json::json!({
+        "mtimeMs": metadata.modified()
+            .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+            .unwrap_or(0)
+    }))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -137,7 +166,11 @@ fn main() {
             get_flac_metadata,
             get_flac_metadata1,
             read_file_base64,
-            scan_music_dir
+            scan_music_dir,
+            create_directory,
+            remove_file,
+            file_exists,
+            get_file_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

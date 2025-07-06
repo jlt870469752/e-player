@@ -22,7 +22,10 @@
 		{
       			"identifier": "fs:scope",
       			"allow": [
-        			 { "path": "**/*" }
+        			 { "path": "**/*" },
+                                 { "path": "$APPDATA/**/*" },     
+                                 { "path": "$HOME/Library/Application Support/**/*" },
+                                 { "path": "$XDG_CONFIG_HOME/**/*" } 
       			]
     		},
 		"core:path:allow-basename"
