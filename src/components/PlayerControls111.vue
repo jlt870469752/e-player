@@ -22,10 +22,87 @@
       </button>
     </div>
 
-    <div class="progress-bar" @click="seek($event)">
-      <div class="progress" :style="{ width: progressPercent + '%' }"></div>
+ <!-- src/components/PlayerControlsControls.vue (修改进度条部分) -->
+<template>
+  <div 
+    class="progress-bar" 
+    @click="seek"
+    @mousedown="isDragging = true"
+    @mousemove="handleDrag"
+    @mouseup="isDragging = false"
+    @mouseleave="if (isDragging) isDragging = false"
+  >
+    <div class="progress" :style="{ width: progressPercent + '%' }">
+      <!-- 拖拽时显示当前时间预览气泡 -->
+      <div 
+        v-if="isDragging" 
+        class="progress-tooltip"
+        :style="{ left: dragPosition + '%' }"
+      >
+        {{ formatTime(dragTime) }}
+      </div>
     </div>
+  </div>
+</template>
 
+<script setup lang="ts">
+// 新增拖拽状态管理
+const isDragging = ref(false);
+const dragPosition = ref(0);
+const dragTime = ref(0);
+
+function handleDrag(event: MouseEvent) {
+  if (!isDragging.value) return;
+  const bar = event.currentTarget as HTMLElement;
+  const rect = bar.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  dragPosition.value = Math.min(100, Math.max(0, (x / rect.width) * 100));
+  dragTime.value = (dragPosition.value / 100) * player.duration;
+}
+
+// 修改 seek 函数，支持拖拽释放后跳转
+function seek(event: MouseEvent) {
+  if (isDragging.value) return; // 拖拽结束后由 mouseup 触发
+  // 原点击跳转逻辑...
+}
+
+// 监听鼠标释放，完成跳转
+watch(isDragging, (newVal) => {
+  if (!newVal && dragPosition.value > 0) {
+    player.seek(dragPosition.value);
+  }
+});
+</script>
+
+<style scoped>
+/* 新增tooltip样式 */
+.progress-tooltip {
+  position: absolute;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--secondary);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 进度条悬停时显示当前位置指示器 */
+.progress-bar:hover .progress::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 2px white;
+}
+</style>
     <div class="time-info">
       <span>{{ formatTime(player.currentTime) }}</span>
       <span>{{ formatTime(player.duration) }}</span>
