@@ -5,7 +5,7 @@
       <img 
         :src="track?.cover || defaultCover" 
         class="cover" 
-        :class="{ 'playing': isPlaying }"
+        :class="{ 'playing': isPlaying, 'loading': isLoading }"
       />
       <div class="meta">
         <div class="title" @click="showTrackDetail">{{ track?.title || '未播放' }}</div>
@@ -29,12 +29,14 @@
           title="上一首"
         />
         <img
+          v-if="!isLoading"
           :src="isPlaying ? pauseIcon : playIcon"
           class="icon play-icon"
           @click="toggle"
           title="播放/暂停"
           :class="{ 'pulse': isPlaying }"
         />
+        <img v-else src="@/assets/icons/loading.svg" class="icon loading-icon" />
         <img 
           src="@/assets/icons/next.svg" 
           class="icon" 
@@ -106,6 +108,7 @@ const currentTime = computed(() => player.currentTime)
 const duration = computed(() => player.duration)
 const volume = ref(player.volume)
 const isBuffering = ref(false)
+const isLoading = computed(() => player.isLoading) // 新增加载状态
 
 // 拖拽相关状态
 const isDragging = ref(false)
@@ -119,6 +122,7 @@ const pauseIcon = new URL('@/assets/icons/pause.svg', import.meta.url).href
 const volumeHighIcon = new URL('@/assets/icons/volume.svg', import.meta.url).href
 const volumeLowIcon = new URL('@/assets/icons/volume-low.svg', import.meta.url).href
 const volumeMuteIcon = new URL('@/assets/icons/mute.svg', import.meta.url).href
+const loadingIcon = new URL('@/assets/icons/loading.svg', import.meta.url).href // 新增加载图标
 
 // 计算属性
 const progressPercent = computed(() => {
@@ -315,7 +319,16 @@ onMounted(() => {
   animation: rotate 10s linear infinite;
 }
 
+.cover.loading {
+  animation: spin 1s linear infinite;
+}
+
 @keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }

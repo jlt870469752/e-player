@@ -22,6 +22,10 @@ interface PlayerState {
   volume: number
   sound: Howl | null
   progressInterval: number | null
+  isLoading: boolean // 新增状态：加载中
+  isProcessing: boolean // 新增：操作锁状态
+  pendingTrackId: string | null // 新增：待处理的歌曲ID
+  abortController: AbortController | null // 新增：用于取消操作
 }
 
 export const usePlayerStore = defineStore('player', {
@@ -33,7 +37,11 @@ export const usePlayerStore = defineStore('player', {
     duration: 0,
     volume: 0.8,
     sound: null,
-    progressInterval: null
+    progressInterval: null,
+    isLoading: false,
+    isProcessing: false, // 初始化操作锁
+    pendingTrackId: null,
+    abortController: null
   }),
 
   actions: {
@@ -83,25 +91,34 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
-    async playTrack(track: AudioTrack) {
-      if (this.sound) {
-        this.sound.stop()
-        this.sound.unload()
-      }
-
-      if (this.progressInterval) {
-        clearInterval(this.progressInterval)
-        this.progressInterval = null
-      }
-
-      this.currentTrack = track
-      this.currentTime = 0
-      this.duration = track.duration
+    async playTrack(track: AudioTrack) { 
+       // 取消之前的操作
+      this.abortCurrentOperation()
+      
+        // 设置当前待处理的歌曲ID
+      this.pendingTrackId = track.id
+      
+      // 创建新的 AbortController 用于取消本次操作
+      this.abortController = new AbortController()
 
       try {
-        // 通过 IPC 调用后端命令读取文件 base64
-        const base64Data: string = await invoke('read_file_base64', { path: track.path })
+        this.stopCurrentTrack() // 确保在播放新歌曲前完全停止当前歌曲
+        this.isLoading = true // 设置加载中状态
+        this.currentTrack = track
+        this.currentTime = 0
+        this.duration = track.duration
 
+        // 通过 IPC 调用后端命令读取文件 base64
+        // 音频加载和播放逻辑
+        const base64Data: string = await invoke('read_file_base64', { 
+          path: track.path,
+          signal: this.abortController.signal // 添加信号用于取消
+        })
+        
+        // 检查是否有新的待处理歌曲（表示用户又点击了其他歌曲）
+        if (this.pendingTrackId !== track.id) {
+          throw new Error('Operation cancelled: new track selected')
+        }
         // base64 => Uint8Array
         const binaryString = atob(base64Data)
         const len = binaryString.length
@@ -124,29 +141,72 @@ export const usePlayerStore = defineStore('player', {
           volume: this.volume,
           onplay: () => {
             this.isPlaying = true
+            this.isLoading = false // 加载完成
             this.startProgressTimer()
+            this.isProcessing = false // 操作完成，释放锁
           },
           onpause: () => {
             this.isPlaying = false
           },
           onend: () => {
             this.isPlaying = false
-            this.nextTrack()
+            this.nextTrack() 
           },
           onloaderror: (_, err) => {
             console.error('Load error:', err)
+            this.isLoading = false // 加载完成
+            this.pendingTrackId = null // 出错时清除待处理ID
           },
           onplayerror: (_, err) => {
             console.error('Play error:', err)
+            this.isLoading = false // 加载完成
+             this.pendingTrackId = null // 出错时清除待处理ID
           }
         })
 
         this.sound.play()
-      } catch (error) {
-        console.error('Error creating player:', error)
+      } catch (error: any) {
+        // 检查是否是主动取消的错误
+        if (error.name === 'AbortError' || error.message.includes('Operation cancelled')) {
+          console.log('Audio loading cancelled:', track.title)
+        } else {
+          console.error('Error playing track:', error)
+        }
+        
+        this.isLoading = false
+        // 重置状态，除非有新的待处理歌曲
+        if (this.pendingTrackId === track.id) {
+          this.pendingTrackId = null
+        }
       }
     },
-
+        // 取消当前操作
+    abortCurrentOperation() {
+      if (this.abortController) {
+        this.abortController.abort()
+        this.abortController = null
+      }
+    },
+      // 新增方法：完全停止当前歌曲并清理资源
+    stopCurrentTrack() {
+        // Howler.stop() 
+      if (this.sound) {
+        // 停止播放
+        this.sound.stop()
+        
+        // 清除定时器
+        if (this.progressInterval) {
+          clearInterval(this.progressInterval)
+          this.progressInterval = null
+        }
+        
+        // 释放资源
+        this.sound.unload()
+        this.sound = null
+      }
+      
+      this.isPlaying = false
+    },
     togglePlay() {
       if (!this.sound) return
       if (this.isPlaying) {
