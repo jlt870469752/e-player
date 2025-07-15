@@ -10,8 +10,14 @@
 import TopMenu from '@/components/TopMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import { useLibraryStore } from '@/stores/library'
+import { onMounted } from 'vue';
 
 const library = useLibraryStore()
+
+
+onMounted(async () => {
+  await library.init();
+});
 
 function scanMusicDirectory() {
   library.scanMusicDirectory()

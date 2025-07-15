@@ -90,6 +90,12 @@ export const usePlayerStore = defineStore('player', {
         return null
       }
     },
+  // 新增批量添加曲目到播放列表的方法
+    async addTracks(tracks: AudioTrack[]) {
+      for (const track of tracks) {
+        await this.addTrack(track.path)
+      }
+    },
 
     async playTrack(track: AudioTrack) { 
        // 取消之前的操作
@@ -217,14 +223,28 @@ export const usePlayerStore = defineStore('player', {
     },
 
     nextTrack() {
-      if (!this.currentTrack || this.playlist.length === 0) return
+        if (this.playlist.length === 0) {
+        console.log('播放列表为空，无法切换到下一首。');
+        return;
+      }
+      if (!this.currentTrack) {
+        this.playTrack(this.playlist[0]);
+        return;
+      }
       const currentIndex = this.playlist.findIndex(t => t.id === this.currentTrack!.id)
       const nextIndex = (currentIndex + 1) % this.playlist.length
       this.playTrack(this.playlist[nextIndex])
     },
 
     prevTrack() {
-      if (!this.currentTrack || this.playlist.length === 0) return
+        if (this.playlist.length === 0) {
+        console.log('播放列表为空，无法切换到上一首。');
+        return;
+      }
+      if (!this.currentTrack) {
+        this.playTrack(this.playlist[0]);
+        return;
+      }
       const currentIndex = this.playlist.findIndex(t => t.id === this.currentTrack!.id)
       const prevIndex = (currentIndex - 1 + this.playlist.length) % this.playlist.length
       this.playTrack(this.playlist[prevIndex])

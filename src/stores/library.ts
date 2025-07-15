@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { readDir } from '@tauri-apps/plugin-fs'
 import { invoke } from '@tauri-apps/api/core'
 import { saveLibraryCache, loadLibraryCache } from '@/utils/cache' // 导入缓存工具
+import { usePlayerStore } from './player'
 
 export interface AudioTrack {
   id: string
@@ -34,8 +35,14 @@ export const useLibraryStore = defineStore('library', {
       this.loading = true;
       try {
         const cachedTracks = await loadLibraryCache();
+        console.log('从缓存加载的曲目数量:', cachedTracks.length);  
         this.tracks = cachedTracks;
         this.lastScanned = Date.now();
+         // 将缓存中的曲目添加到播放列表
+        const player = usePlayerStore();
+        await player.addTracks(cachedTracks);
+      } catch (error) {
+        console.error('初始化时加载缓存失败:', error); // 捕获并输出错误信息
       } finally {
         this.loading = false;
       }
@@ -85,6 +92,10 @@ export const useLibraryStore = defineStore('library', {
         // 保存到缓存
         await saveLibraryCache(this.tracks);
         this.lastScanned = Date.now();
+
+          // 将新扫描的曲目添加到播放列表
+        const player = usePlayerStore();
+        await player.addTracks(newTracks);
       } catch (e) {
         console.error('扫描目录失败:', e);
       } finally {
@@ -125,6 +136,10 @@ export const useLibraryStore = defineStore('library', {
         }
         this.tracks = validTracks;
         await saveLibraryCache(this.tracks);
+
+         // 更新播放列表
+        const player = usePlayerStore();
+        player.playlist = validTracks;
       } finally {
         this.loading = false;
       }
@@ -168,6 +183,10 @@ export const useLibraryStore = defineStore('library', {
 
 	this.tracks = [...this.tracks, ...newTracks]
 	console.log('更新后的曲库:', this.tracks)
+
+    // 将新扫描的曲目添加到播放列表
+    const player = usePlayerStore();
+    await player.addTracks(newTracks);
 	} catch (e) {
 	console.error('扫描目录失败:', e)
 	} finally {
