@@ -13,25 +13,39 @@
         v-for="track in library.tracks"
         :key="track.id"
         class="track-item"
+        :class="{ playing: track.id === player.currentTrack?.id }"
         @click="play(track)"
       >
-        <div class="title">{{ track.title }}</div>
-        <div class="artist">{{ track.artist }} - {{ track.album }}</div>
+        <img :src="track.cover" alt="封面" class="track-cover" />
+        <div class="track-info">
+          <div class="title">{{ track.title }}</div>
+          <div class="artist">{{ track.artist }} - {{ track.album }}</div>
+        </div>
       </li>
     </ul>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useLibraryStore } from '@/stores/library'
-import { usePlayerStore } from '@/stores/player'
+import { useLibraryStore } from "@/stores/library";
+import { usePlayerStore } from "@/stores/player";
 
-const library = useLibraryStore()
-const player = usePlayerStore()
+const library = useLibraryStore();
+const player = usePlayerStore();
 
 const play = (track: AudioTrack) => {
-  player.playTrack(track)
-}
+  player.playTrack(track);
+};
+
+type AudioTrack = {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  cover: string;
+  path: string;
+  duration: number;
+};
 </script>
 
 <style scoped>
@@ -55,13 +69,32 @@ const play = (track: AudioTrack) => {
 }
 
 .track-item {
+  display: flex;
+  align-items: center;
   padding: 10px 12px;
   border-bottom: 1px solid #e0e0e0;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .track-item:hover {
   background-color: #f5f5f5;
+}
+
+.track-item.playing {
+  background-color: #e0f7fa;
+}
+
+.track-cover {
+  width: 50px;
+  height: 50px;
+  margin-right: 12px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.track-info {
+  flex: 1;
 }
 
 .title {

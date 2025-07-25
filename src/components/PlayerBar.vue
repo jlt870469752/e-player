@@ -2,18 +2,20 @@
   <div class="player-bar">
     <!-- 左侧歌曲信息 -->
     <div class="left">
-      <img 
-        :src="track?.cover || defaultCover" 
-        class="cover" 
-        :class="{ 'playing': isPlaying }"
+      <img
+        :src="track?.cover || defaultCover"
+        class="cover"
+        :class="{ playing: isPlaying }"
       />
       <div class="meta">
-        <div class="title" @click="showTrackDetail">{{ track?.title || '未播放' }}</div>
-        <div class="artist">{{ track?.artist || '未知艺术家' }}</div>
+        <div class="title" @click="showTrackDetail">
+          {{ track?.title || "未播放" }}
+        </div>
+        <div class="artist">{{ track?.artist || "未知艺术家" }}</div>
       </div>
-      <img 
-        src="@/assets/icons/playlist.svg" 
-        class="icon playlist-icon" 
+      <img
+        src="@/assets/icons/playlist.svg"
+        class="icon playlist-icon"
         @click="togglePlaylist"
         title="播放列表"
       />
@@ -22,10 +24,10 @@
     <!-- 中间控制区域 -->
     <div class="center">
       <div class="controls">
-        <img 
-          src="@/assets/icons/prev.svg" 
-          class="icon" 
-          @click="prev" 
+        <img
+          src="@/assets/icons/prev.svg"
+          class="icon"
+          @click="prev"
           title="上一首"
         />
         <img
@@ -33,38 +35,43 @@
           class="icon play-icon"
           @click="toggle"
           title="播放/暂停"
-          :class="{ 'pulse': isPlaying }"
+          :class="{ pulse: isPlaying }"
         />
-        <img 
-          src="@/assets/icons/next.svg" 
-          class="icon" 
-          @click="next" 
+        <img
+          src="@/assets/icons/next.svg"
+          class="icon"
+          @click="next"
           title="下一首"
         />
       </div>
       <div class="progress-row">
         <span class="time">{{ formatTime(currentTime) }}</span>
-        <div 
-          class="progress-container" 
+        <div
+          class="progress-container"
           @click="handleProgressClick"
           @mousedown="startDragging"
-          @mousemove="handleDrag"
+          @mousemove="isDragging ? handleDrag : showHoverTime"
           @mouseup="stopDragging"
-          @mouseleave="stopDragging"
-          :class="{ 'buffering': isBuffering }"
+          @mouseleave="clearHoverTime"
+          :class="{ buffering: isBuffering }"
         >
           <div class="progress-bg"></div>
-          <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-          <div 
-            class="progress-handle" 
-            :style="{ left: progressPercent + '%' }"
+          <div
+            class="progress-fill"
+            :style="{ width: progressPercent + '%' }"
           ></div>
-          <div 
-            v-if="isDragging" 
+          <div
+            class="progress-handle"
+            :style="{
+              left: (isDragging ? dragPercent : progressPercent) + '%',
+            }"
+          ></div>
+          <div
             class="progress-tooltip"
-            :style="{ left: dragPercent + '%' }"
+            v-if="hoverTime !== null"
+            :style="{ left: hoverPercent + '%' }"
           >
-            {{ formatTime(dragTime) }}
+            {{ formatTime(hoverTime) }}
           </div>
         </div>
         <span class="time">{{ formatTime(duration) }}</span>
@@ -73,9 +80,9 @@
 
     <!-- 右侧音量控制 -->
     <div class="right">
-      <img 
-        :src="volumeIcon" 
-        class="icon" 
+      <img
+        :src="volumeIcon"
+        class="icon"
         @click="toggleMute"
         :title="isMuted ? '取消静音' : '静音'"
       />
@@ -87,169 +94,195 @@
         v-model="volume"
         @input="changeVolume"
         class="volume"
-        :class="{ 'muted': isMuted }"
+        :class="{ muted: isMuted }"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { usePlayerStore } from '@/stores/player'
-import { listen } from '@tauri-apps/api/event'
+import { computed, ref, onMounted, onUnmounted } from "vue";
+import { usePlayerStore } from "@/stores/player";
+import { listen } from "@tauri-apps/api/event";
 
 // 状态管理
-const player = usePlayerStore()
-const track = computed(() => player.currentTrack)
-const isPlaying = computed(() => player.isPlaying)
-const currentTime = computed(() => player.currentTime)
-const duration = computed(() => player.duration)
-const volume = ref(player.volume)
-const isBuffering = ref(false)
+const player = usePlayerStore();
+const track = computed(() => player.currentTrack);
+const isPlaying = computed(() => player.isPlaying);
+const currentTime = computed(() => player.currentTime);
+const duration = computed(() => player.duration);
+const volume = ref(player.volume);
+const isBuffering = ref(false);
 
 // 拖拽相关状态
-const isDragging = ref(false)
-const dragPercent = ref(0)
-const dragTime = ref(0)
+const isDragging = ref(false);
+const dragPercent = ref(0);
+const dragTime = ref(0);
+
+// 鼠标悬停显示时间
+const hoverTime = ref<number | null>(null);
+const hoverPercent = ref(0);
 
 // 静态资源
-const defaultCover = 'https://via.placeholder.com/60?text=♪'
-const playIcon = new URL('@/assets/icons/play.svg', import.meta.url).href
-const pauseIcon = new URL('@/assets/icons/pause.svg', import.meta.url).href
-const volumeHighIcon = new URL('@/assets/icons/volume.svg', import.meta.url).href
-const volumeLowIcon = new URL('@/assets/icons/volume-low.svg', import.meta.url).href
-const volumeMuteIcon = new URL('@/assets/icons/mute.svg', import.meta.url).href
+const defaultCover = "https://via.placeholder.com/60?text=♪";
+const playIcon = new URL("@/assets/icons/play.svg", import.meta.url).href;
+const pauseIcon = new URL("@/assets/icons/pause.svg", import.meta.url).href;
+const volumeHighIcon = new URL("@/assets/icons/volume.svg", import.meta.url)
+  .href;
+const volumeLowIcon = new URL("@/assets/icons/volume-low.svg", import.meta.url)
+  .href;
+const volumeMuteIcon = new URL("@/assets/icons/mute.svg", import.meta.url).href;
 
 // 计算属性
 const progressPercent = computed(() => {
-  if (duration.value === 0) return 0
-  return (currentTime.value / duration.value) * 100
-})
+  if (duration.value === 0) return 0;
+  return (currentTime.value / duration.value) * 100;
+});
 
 const isMuted = computed({
   get: () => player.volume === 0,
   set: (value) => {
     if (value) {
-      player.setVolume(0)
+      player.setVolume(0);
     } else {
-      player.setVolume(0.8) // 恢复默认音量
+      player.setVolume(0.8); // 恢复默认音量
     }
-  }
-})
+  },
+});
 
 const volumeIcon = computed(() => {
   if (isMuted.value) {
-    return volumeMuteIcon
+    return volumeMuteIcon;
   } else if (volume.value < 0.5) {
-    return volumeLowIcon
+    return volumeLowIcon;
   } else {
-    return volumeHighIcon
+    return volumeHighIcon;
   }
-})
+});
 
 // 时间格式化
 function formatTime(seconds: number) {
-  const min = Math.floor(seconds / 60)
-  const sec = Math.floor(seconds % 60)
-  return `${min}:${sec.toString().padStart(2, '0')}`
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
 // 播放控制
 function toggle() {
-  player.togglePlay()
+  player.togglePlay();
 }
 
 function next() {
-  player.nextTrack()
+  player.nextTrack();
 }
 
 function prev() {
-  player.prevTrack()
+  player.prevTrack();
 }
 
 // 进度条控制
 function handleProgressClick(e: MouseEvent) {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const percent = ((e.clientX - rect.left) / rect.width) * 100
-  player.seek(percent)
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const percent = ((e.clientX - rect.left) / rect.width) * 100;
+  player.seek(percent);
 }
 
 function startDragging(e: MouseEvent) {
-  isDragging.value = true
-  handleDrag(e)
+  isDragging.value = true;
+  handleDrag(e);
 }
 
 function handleDrag(e: MouseEvent) {
-  if (!isDragging.value) return
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
-  dragPercent.value = percent
-  dragTime.value = (percent / 100) * duration.value
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const percent = Math.max(
+    0,
+    Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+  );
+  dragPercent.value = percent;
+  dragTime.value = (percent / 100) * duration.value;
 }
 
 function stopDragging() {
   if (isDragging.value) {
-    player.seek(dragPercent.value)
-    isDragging.value = false
+    player.seek((dragPercent.value / 100) * duration.value);
+    isDragging.value = false;
   }
+}
+
+function showHoverTime(e: MouseEvent) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const percent = Math.max(
+    0,
+    Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+  );
+  hoverPercent.value = percent;
+  hoverTime.value = (percent / 100) * duration.value;
+}
+
+function clearHoverTime() {
+  hoverTime.value = null;
 }
 
 // 音量控制
 function changeVolume() {
-  player.setVolume(volume.value)
+  player.setVolume(volume.value);
 }
 
 function toggleMute() {
-  isMuted.value = !isMuted.value
+  isMuted.value = !isMuted.value;
 }
 
 // 额外功能
 function showTrackDetail() {
   // 可以在这里实现点击歌曲标题显示详情的逻辑
-  console.log('显示歌曲详情:', track.value)
+  console.log("显示歌曲详情:", track.value);
 }
 
 function togglePlaylist() {
   // 可以在这里实现播放列表的显示/隐藏逻辑
-  console.log('切换播放列表显示状态')
+  console.log("切换播放列表显示状态");
 }
 
 // 全局快捷键支持
 onMounted(() => {
-  const unlisten = listen('global-shortcut', (event) => {
+  const unlisten = listen("global-shortcut", (event) => {
     switch (event.payload) {
-      case 'MediaPlayPause':
-        toggle()
-        break
-      case 'MediaNextTrack':
-        next()
-        break
-      case 'MediaPreviousTrack':
-        prev()
-        break
-      case 'VolumeUp':
-        volume.value = Math.min(1, volume.value + 0.1)
-        changeVolume()
-        break
-      case 'VolumeDown':
-        volume.value = Math.max(0, volume.value - 0.1)
-        changeVolume()
-        break
+      case "MediaPlayPause":
+        toggle();
+        break;
+      case "MediaNextTrack":
+        next();
+        break;
+      case "MediaPreviousTrack":
+        prev();
+        break;
+      case "VolumeUp":
+        volume.value = Math.min(1, volume.value + 0.1);
+        changeVolume();
+        break;
+      case "VolumeDown":
+        volume.value = Math.max(0, volume.value - 0.1);
+        changeVolume();
+        break;
     }
-  })
+  });
 
   // 监听音量变化（从其他地方修改音量时同步）
-  const volumeUnlisten = player.$subscribe((mutation) => {
-    if (mutation.storeId === 'player' && mutation.type === 'set' && mutation.key === 'volume') {
-      volume.value = player.volume
+  const volumeUnlisten = player.$subscribe((mutation: any) => {
+    if (
+      mutation.storeId === "player" &&
+      mutation.type === "set" &&
+      mutation.events?.key === "volume"
+    ) {
+      volume.value = player.volume;
     }
-  })
+  });
 
   return () => {
-    unlisten.then(u => u())
-    volumeUnlisten()
-  }
-})
+    unlisten.then((u) => u());
+    volumeUnlisten();
+  };
+});
 </script>
  
 
@@ -276,9 +309,15 @@ onMounted(() => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .player-bar {
@@ -321,13 +360,21 @@ onMounted(() => {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .meta {
@@ -413,8 +460,12 @@ onMounted(() => {
 }
 
 @keyframes buffer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .progress-handle {
@@ -445,6 +496,7 @@ onMounted(() => {
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
+  z-index: 10;
 }
 
 .time {
